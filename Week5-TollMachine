@@ -1,0 +1,249 @@
+//
+//  ViewController.swift
+//  Toll Machine
+//
+//  Created by Shawn Huang on 9/23/17.
+//  Copyright © 2017 Shawn Huang. All rights reserved.
+//
+
+import UIKit
+
+class ViewController: UIViewController {
+    
+    //text fields to enter lower and upper bounds
+    @IBOutlet weak var lowerField: UITextField!
+    
+    @IBOutlet weak var upperField: UITextField!
+    
+    @IBOutlet weak var coinCountsLabel: UILabel!
+    
+    
+    //keeps track of number of pennies, nickels, dimes, quarters used
+    var coinCounts = [0, 0, 0, 0]
+    var coinNames = ["Pennies", "Nickels", "Dimes", "Quarters"]
+    var coinValues = [0.01, 0.05, 0.1, 0.25]
+    
+    //labels to show user fails/successes/# of coins
+    
+    @IBOutlet weak var failureLabel: UILabel!
+    @IBOutlet weak var coinsLabel: UILabel!
+    @IBOutlet weak var successLabel: UILabel!
+    
+    
+    //textfield to enter custom toll
+    @IBOutlet weak var tollField: UITextField!
+    
+    
+    //random toll between 0.01 and 5.00
+    var toll = Double(arc4random_uniform(501)) / 100 + 0.01
+    
+    //variables to keep track of fails/successes/# of coins
+    var coins = 0
+    var successes = 0
+    var fails = 0
+    
+    //minimum and maximum number between which we are generating numbers
+    var minimum = 0.01
+    var maximum: Double = 5
+    
+    var minimumCoins = 0
+    
+    //label to display toll
+    @IBOutlet weak var tollLabel: UILabel!
+    
+    
+    
+    //user presses button to set lower and upper limits
+    
+    @IBAction func setLimitsPressed(_ sender: Any) {
+    //if the user enters something that is not a number into the textfields
+        if lowerField.text == nil || lowerField.text! == "" || Double(lowerField.text!) == nil || upperField.text == nil || upperField.text! == "" || Double(upperField.text!) == nil {
+            //display a popup titled "Invalid Input," that shows the message and has an 'Ok' option to dismiss it
+            showPopup(message: "Your limits must be numbers.", title: "Invalid Input")
+            //leave the function - don't do any thing after this point
+            return
+        }
+        //if the upper is not greater than the lower
+        if Double(upperField.text!)! <= Double(lowerField.text!)! {
+            //display a popup titled "Invalid Input," that shows the message and has an 'Ok' option to dismiss it
+            showPopup(message: "Your upper limit must be greater than your lower limit.", title: "Invalid Input")
+            //leave the function - don't do any thing after this point
+            return
+        }
+        //if the lower limit is negative or 0
+        if Double(lowerField.text!)! <= 0 {
+            //show popup and leave function
+            showPopup(message: "Your lower limit must be greater than 0.", title: "Lower Limit Invalid")
+            return
+        }
+        //set the minimum and maximum values, round them to 2 digits
+        minimum = round(Double(lowerField.text!)! * 100) / 100
+        maximum = round(Double(upperField.text!)! * 100) / 100
+        //reset the toll to be between the min and max, then reset the game
+        toll = Double(arc4random_uniform(UInt32((maximum - minimum) * 100 + 1))) / 100 + minimum
+        resetGame()
+    }
+    //user clicks the button to set a custom toll
+    
+    @IBAction func setTollPressed(_ sender: Any) {
+    //if the input is invalid in some way (|| means OR)
+        if tollField.text == nil || tollField.text! == "" || Double(tollField.text!) == nil {
+            //display a popup titled "Invalid Input," that shows the message and has an 'Ok' option to dismiss it
+            showPopup(message: "Your toll must be a number.", title: "Invalid Input")
+            //leave the function - don't do any thing after this point
+            return
+        }
+        //if the toll is not between 0 and 5
+        if Double(tollField.text!)! < minimum || Double(tollField.text!)! > maximum {
+            //show a popup
+            showPopup(message: "Your toll must be between " + String(minimum) + " and " + String(maximum) + ".", title: "Invalid Input")
+            //leave the function - don't do any thing after this point
+            return
+        }
+        //set the toll to what they entered
+        toll = round(Double(tollField.text!)! * 100) / 100
+        //calls our custom function - resetGame() which is defined below
+        resetGame()
+    }
+    
+    //custom function to show a popup (so we don't have to type again or copy/paste)
+    func showPopup(message: String, title: String) {
+        var alertController = UIAlertController(title: title, message: message, preferredStyle: UIAlertControllerStyle.alert)
+        alertController.addAction(UIAlertAction(title: "Ok", style: UIAlertActionStyle.default,handler: nil))
+        self.present(alertController, animated: true, completion: nil)
+    }
+    
+    //when the reset button is pressed
+    
+    @IBAction func resetPressed(_ sender: Any) {
+    //generate a new random toll
+        toll = Double(arc4random_uniform(UInt32((maximum - minimum) * 100 + 1))) / 100 + minimum
+        //calls our custom function - resetGame() which is defined below
+        resetGame()
+    }
+    
+    @IBAction func oneCentClicked(_ sender: Any) {
+    //update number of pennies used
+        coinCounts[0] = coinCounts[0] + 1
+        updateCoinLabel()
+        //calls our function - payAmount(amount: Double) which is defined below, inputs 1 cent
+        payAmount(amount: coinValues[0])
+    }
+    @IBAction func fiveCentClicked(_ sender: Any) {
+        //update number of nickels used
+        coinCounts[1] = coinCounts[1] + 1
+        updateCoinLabel()
+        //calls our function - payAmount(amount: Double) which is defined below, inputs 5 cents
+        payAmount(amount: coinValues[1])
+    }
+    
+    @IBAction func tenCentClicked(_ sender: Any) {
+    //update number of dimes used
+        coinCounts[2] = coinCounts[2] + 1
+        updateCoinLabel()
+        //calls our function - payAmount(amount: Double) which is defined below, inputs 10 cents
+        payAmount(amount: coinValues[2])
+    }
+    
+    @IBAction func twentyFiveCentClicked(_ sender: Any) {
+    //update number of quarters used
+        coinCounts[3] = coinCounts[3] + 1
+        updateCoinLabel()
+        //calls our function - payAmount(amount: Double) which is defined below, inputs 25 cents
+        payAmount(amount: coinValues[3])
+    }
+    
+    //our custom function - payAmount, pays a specified amount
+    func payAmount(amount: Double) {
+        //subtract the amount we pay from the toll
+        //we have to do this strange rounding and multiplying/dividing because Swift and many other programming languages have problems dealing with decimal point numbers (for example, 0.1 might become 0.09999...). We deal with this by rounding to 2 decimal places
+        toll = round((toll - amount) * 100) / 100
+        //add one to the number of coins used
+        coins = coins + 1
+        //if the toll hits exactly $0.00
+        if toll == 0 {
+            if coins == minimumCoins {
+                showPopup(message: "You won using " + String(coins) + " coins, which was the minimum!", title: "You won!")
+            } else {
+                showPopup(message: "You won using " + String(coins) + " coins! The minimum number was " + String(minimumCoins) + ".", title: "You won!")
+            }
+            //generate new random toll
+            toll = Double(arc4random_uniform(UInt32((maximum - minimum) * 100 + 1))) / 100 + minimum
+            resetGame()
+            //add 1 to successes (user succeeded by hitting exactly $0.00), update label
+            successes = successes + 1
+            successLabel.text = "Successes: " + String(successes)
+        } else if toll < 0 { //if the toll goes negative
+            showPopup(message: "You lost using " + String(coins) + " coins.", title: "You Failed")
+            //generate new random toll
+            toll = Double(arc4random_uniform(UInt32((maximum - minimum) * 100 + 1))) / 100 + minimum
+            resetGame()
+            //add 1 to fails (user failed by going under $0.00), update label
+            fails = fails + 1
+            failureLabel.text = "Failures: " + String(fails)
+        }
+        //update toll and coin labels
+        tollLabel.text = "$" + String(toll)
+        coinsLabel.text = "Coins used: " + String(coins)
+    }
+    
+    //custom function - to reset the game
+    func resetGame() {
+        //reset coin counter to 0
+        coins = 0
+        //update toll and coin labels
+        tollLabel.text = "$" + String(toll)
+        coinsLabel.text = "Coins used: " + String(coins)
+        for i in 0..<coinCounts.count {
+            coinCounts[i] = 0
+        }
+        updateCoinLabel()
+        minCoins()
+    }
+    
+    func updateCoinLabel() {
+        var message = ""
+        for i in 0..<coinCounts.count {
+            message = message + coinNames[i] + ": "
+            message = message + String(coinCounts[i])
+            if i < coinCounts.count - 1 {
+                message = message + ", "
+            }
+        }
+        coinCountsLabel.text = message
+    }
+    
+    func minCoins() {
+        var count = 0
+        var currToll = toll
+        while currToll > 0 {
+            var maximum = 0.0
+            for value in coinValues {
+                if value > maximum && value <= currToll {
+                    maximum = value
+                }
+            }
+            currToll = round((currToll - maximum) * 100) / 100
+            count = count + 1
+        }
+        minimumCoins = count
+    }
+    
+    //Swift function - runs when the app first loads, before user sees it
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        //update toll label to show the first random toll
+        tollLabel.text = "$" + String(toll)
+        
+        minCoins()
+        // Do any additional setup after loading the view, typically from a nib.
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        // Dispose of any resources that can be recreated.
+    }
+    
+    
+}
+
